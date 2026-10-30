@@ -455,6 +455,47 @@ pgrep -a dumpcap; pgrep -a tcpdump
 sudo pkill dumpcap        # only if a stale process is listed
 ```
 
+### 2.3 "Access denied" After Changing the Capture Settings
+
+After you change the channel or width in the gear dialog and press **Start**, the capture sometimes fails to connect at all:
+
+```
+ssh_strict_fopen: Failed to open a file /Users/<you>/.ssh/config for reading: No such file or directory
+ssh_strict_fopen: Failed to open a file /etc/ssh/ssh_known_hosts for reading: No such file or directory
+ssh_userauth_publickey_auto: Access denied: Tried every public key, none matched
+Error creating connection.
+Can't find a valid authentication. Disconnecting
+```
+
+The paths differ by OS (the example is macOS; Windows shows the paths from Section 1.1), but the cause is the same. The two `ssh_strict_fopen` lines are the harmless missing-file messages from Section 2.2. The real failure is the next line: none of the credentials wifidump offered were accepted by the RPi5. The fix depends on how you log in.
+
+**Password login:** the **Remote SSH password** field is often cleared when the dialog is reopened and saved, even though the other fields keep their values, so libssh falls back to trying your SSH keys. Open the gear dialog again, type the password back into **Remote SSH password**, and press **Start**. If that does not help, go through the dialog again, checking the address, username, and interface (`mon0`), then start once more.
+
+**SSH key login:** the key setup has gone stale. Usually the key pair no longer matches what the RPi5 has in `authorized_keys`, or the saved host key no longer matches (for example after re-flashing the SD card). Remove the key files and the saved host entries, then set them up again. Use a dedicated key for the sniffer so that deleting it does not break your other SSH logins:
+
+```bash
+# Remove the old key pair and the saved host keys for the RPi5
+rm -f ~/.ssh/wifi_sniffer ~/.ssh/wifi_sniffer.pub
+ssh-keygen -R wifi-sniffer.local
+ssh-keygen -R <rpi-ip>
+
+# Create a new key and install it on the RPi5 (asks for the RPi5 password once)
+ssh-keygen -t ed25519 -f ~/.ssh/wifi_sniffer
+ssh-copy-id -i ~/.ssh/wifi_sniffer.pub <username>@wifi-sniffer.local
+
+# Log in once by hand: accept the host key, and confirm no password is asked
+ssh -i ~/.ssh/wifi_sniffer <username>@wifi-sniffer.local
+```
+
+Then open the gear dialog, set **Path to SSH private key** to `~/.ssh/wifi_sniffer` again (plus **SSH key passphrase** if you gave the key one), leave the password field empty, and press **Start**. On Windows, where `ssh-copy-id` is not available, append the contents of `wifi_sniffer.pub` to `~/.ssh/authorized_keys` on the RPi5 instead.
+
+To silence the two `ssh_strict_fopen` lines on macOS or Linux, create the files libssh looks for:
+
+```bash
+touch ~/.ssh/config
+sudo touch /etc/ssh/ssh_known_hosts
+```
+
 ---
 
 ## 3. Local Capture on the RPi5 -- Advanced
