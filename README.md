@@ -389,28 +389,23 @@ Get-ChildItem "$HOME\.ssh", "C:\ProgramData\ssh" | Select-Object FullName
    - **Remote SSH username:** the username from the image
    - **Remote SSH password:** the password from the image
    - **Remote interface:** `mon0`
-   - **Channel / frequency:** a channel number within the band `mon0` is already on. To move to a different band, pre-set it with `sudo mon0-set-channel` first (Part 1, Section 6) — wifidump cannot do a cross-band switch itself.
+   - **Remote channel:** pick any 2.4 / 5 / 6 GHz channel from the list.
+   - **Remote channel width:** 20, 40, 80 or 160 MHz (see 2.1).
 4. Click **Start**.
 
-wifidump connects over SSH, sets the channel on `mon0`, and streams frames live into Wireshark. Since `mon0` is already in monitor mode via the systemd service set up in Part 1, Section 4, wifidump will find it ready and proceed without needing to reconfigure it.
+wifidump connects over SSH, sets the channel and width on `mon0` (any band — the `iw` wrapper from the setup script takes care of the cross-band switch), and streams frames live into Wireshark. Since `mon0` is already in monitor mode via the systemd service set up in Part 1, Section 4, wifidump will find it ready and proceed without needing to reconfigure it.
 
-### 2.1 6 GHz Capture
+### 2.1 Channel Width
 
-wifidump passes its channel field straight to `iw set channel`, which always resolves a plain number like 37 to 5 GHz. So for 6 GHz, set the frequency on the RPi first and let wifidump's own channel step fail harmlessly.
+wifidump sends the chosen channel and width to the RPi5 as `iw dev mon0 set freq <MHz> <width> [<centre>]`; the wrapper applies it on every band, including 6 GHz, with no pre-setting over SSH. Check what the radio actually accepted with `iw dev mon0 info`. If the driver rejects a width, the capture falls back to 20 MHz.
 
-**Step 1 — Pre-set `mon0` on the RPi** (see Part 1, Section 6):
+Which width to choose:
 
-```bash
-sudo mon0-set-channel freq 6135
-```
+- **20 MHz** — management frames, association/EAPOL, connection debugging. Best sensitivity.
+- **Match the AP's width (40/80/160)** for data traffic such as iperf. A 20 MHz capture only sees the primary 20 MHz of a wide frame, so most data frames are missed. Measured against an 80 MHz network over 15 s: ~600 frames (1 data frame) at 20 MHz versus ~2300-2900 frames (180-280 data frames) at 80 MHz.
+- Set the **primary channel** to the AP's primary channel so your block lines up with the AP's. The AP's width is in the HT/VHT/HE Operation elements of its beacon.
 
-**Step 2 — Start wifidump** and enter the same frequency in MHz in the channel field (e.g. `6135`). wifidump's channel-set step fails silently on the invalid channel number, leaving `mon0` exactly where you pre-set it.
-
-**Switching back to 2.4 or 5 GHz** afterwards is a single command — no interface juggling needed:
-
-```bash
-sudo mon0-set-channel 36              # 5 GHz channel 36
-```
+> `sudo mon0-set-channel` still sets the default channel applied at boot. While `ap0` is running, `mon0` follows the AP's channel and the wrapper leaves `wlan1` alone.
 
 ### 2.2 Harmless Messages When You Press Stop
 
