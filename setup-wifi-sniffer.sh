@@ -171,7 +171,8 @@ sudo tee /usr/local/bin/iw > /dev/null <<'IWEOF'
 #    The MT7921 driver refuses a cross-band change while wlan1 is UP, so wlan1
 #    is taken down first. mon0 is a separate VIF and keeps capturing.
 #    - centre: taken from wifidump when given, otherwise derived here.
-#    - If the driver rejects a wide width the radio falls back to 20 MHz so the
+#    - 20 MHz is the default: no width given, an unknown width, a width the driver
+#      rejects, or one it accepts without applying all end up on 20 MHz so the
 #      capture still starts (check with 'iw dev mon0 info').
 #    - Prints nothing: any text on stdout lands inside the pcapng stream and
 #      shows up in Wireshark as "magic = 0x6d6d6f63".
@@ -209,12 +210,16 @@ if [ "$1" = dev ] && [ "$2" = mon0 ] && [ "$3" = set ] \
     ip link set wlan1 down 2>/dev/null
     ip link set mon0 up 2>/dev/null
 
+    # 20 MHz is the default and the safety net: it is used when no width is
+    # given, for any width other than 40/80/160, when iw rejects the wide
+    # setting, and when iw accepts it but the radio did not really switch.
     applied=0
     case "$width" in
         40|80|160)
             c=${7:-}
             [[ "$c" =~ ^[0-9]+$ ]] || c=$(centre "$freq" "$width")
-            if [ -n "$c" ] && $IW dev mon0 set freq "$freq" "$width" "$c" >/dev/null 2>&1; then
+            if [ -n "$c" ] && $IW dev mon0 set freq "$freq" "$width" "$c" >/dev/null 2>&1 \
+               && $IW dev mon0 info 2>/dev/null | grep -q "width: $width MHz"; then
                 applied=1
             fi ;;
     esac

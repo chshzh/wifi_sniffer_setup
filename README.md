@@ -397,7 +397,7 @@ wifidump connects over SSH, sets the channel and width on `mon0` (any band — t
 
 ### 2.1 Channel Width
 
-wifidump sends the chosen channel and width to the RPi5 as `iw dev mon0 set freq <MHz> <width> [<centre>]`; the wrapper applies it on every band, including 6 GHz, with no pre-setting over SSH. Check what the radio actually accepted with `iw dev mon0 info`. If the driver rejects a width, the capture falls back to 20 MHz.
+wifidump sends the chosen channel and width to the RPi5 as `iw dev mon0 set freq <MHz> <width> [<centre>]`; the wrapper applies it on every band, including 6 GHz, with no pre-setting over SSH. Check what the radio actually accepted with `iw dev mon0 info`. **20 MHz is the default and the fallback:** if no width is sent, the width is not 40/80/160, the driver rejects it, or it accepts it but the radio does not really switch (the wrapper reads it back), the capture runs on 20 MHz instead of failing.
 
 Which width to choose:
 
