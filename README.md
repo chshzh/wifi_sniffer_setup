@@ -407,6 +407,25 @@ Which width to choose:
 
 > `sudo mon0-set-channel` still sets the default channel applied at boot. While `ap0` is running, `mon0` follows the AP's channel and the wrapper leaves `wlan1` alone.
 
+#### Optional: choose the channel over SSH instead
+
+You do not have to use the Wireshark dropdown. If you prefer to set the channel on the RPi5 yourself (for example a width or centre frequency the dropdown does not offer, or a channel you want to keep for a long session), do it over SSH — see Part 1, Section 6 for all `mon0-set-channel` forms:
+
+```bash
+sudo mon0-set-channel freq 6135 80        # any band; width and centre derived
+sudo touch /etc/wifi-sniffer/keep-channel # lock: ignore wifidump's channel/width
+```
+
+wifidump always sends the channel shown in its dialog when a capture starts, which would overwrite what you set over SSH. The `keep-channel` file tells the `iw` wrapper to ignore those requests, so the capture runs on the channel you chose. In the Wireshark dialog, the channel and width fields are then only cosmetic.
+
+Back to the Wireshark dropdown:
+
+```bash
+sudo rm /etc/wifi-sniffer/keep-channel
+```
+
+> With `wlan1` up (after `mon0-set-channel`), `iw dev mon0 info` may not print a channel line. The confirmation printed by `mon0-set-channel` itself shows what was applied.
+
 ### 2.2 Harmless Messages When You Press Stop
 
 Pressing **Stop** on a wifidump capture normally prints a burst of SSH errors. These are teardown noise, not a failed capture — the packets were already collected:

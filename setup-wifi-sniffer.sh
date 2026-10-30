@@ -175,9 +175,13 @@ sudo tee /usr/local/bin/iw > /dev/null <<'IWEOF'
 #      capture still starts (check with 'iw dev mon0 info').
 #    - Prints nothing: any text on stdout lands inside the pcapng stream and
 #      shows up in Wireshark as "magic = 0x6d6d6f63".
-# 2. Every other call goes to the real iw. EBUSY ("resource busy") and
+# 2. Optional: while /etc/wifi-sniffer/keep-channel exists, wifidump's channel and
+#    width requests are ignored, so a channel set over SSH with
+#    'sudo mon0-set-channel' stays in place for the whole capture.
+# 3. Every other call goes to the real iw. EBUSY ("resource busy") and
 #    "Invalid argument" are swallowed for the same stdout reason.
 IW=/usr/sbin/iw
+KEEP=/etc/wifi-sniffer/keep-channel
 
 # Centre frequency of the <width> MHz block containing control frequency <freq>.
 centre() {
@@ -197,6 +201,7 @@ centre() {
 if [ "$1" = dev ] && [ "$2" = mon0 ] && [ "$3" = set ] \
    && { [ "$4" = freq ] || [ "$4" = channel ]; } \
    && [[ "$5" =~ ^[0-9]+$ ]] && (( $5 >= 2400 )) \
+   && { [ ! -e "$KEEP" ] || exit 0; } \
    && ! $IW dev ap0 info >/dev/null 2>&1; then     # AP running: mon0 follows ap0, leave wlan1 alone
     freq=$5
     width=${6:-20}
